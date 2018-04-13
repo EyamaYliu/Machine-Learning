@@ -57,6 +57,8 @@ def get_args():
     parser.add_argument("--algorithm", type=str, help="The name of the algorithm for training.")
 
     # TODO This is where you will add new command line options
+    parser.add_argument("--num-boosting-iterations", type=int, help="The number of boosting iterations to run.",
+                        default=10)
     
     
     args = parser.parse_args()
