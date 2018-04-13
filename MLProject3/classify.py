@@ -2,6 +2,7 @@ import os
 import argparse
 import sys
 import pickle
+import models
 
 from cs475_types import ClassificationLabel, FeatureVector, Instance, Predictor
 
@@ -76,8 +77,8 @@ def check_args(args):
 
 
 def train(instances, algorithm):
-    # TODO Train the model using "algorithm" on "data"
-    # TODO This is where you will add new algorithms that will subclass Predictor
+        if algorithm.lower() == 'adaboost':
+            model = models.Adaboost()
     
     return None
 
