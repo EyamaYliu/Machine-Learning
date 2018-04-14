@@ -15,8 +15,9 @@ class Adaboost:
 
     def fit(self, X, y,iteration):
 
+
         try:
-            X = np.asarray(X)
+            X = X.toarray()
         except:
             pass #Transform X from whatever to ndarray 
 
@@ -26,10 +27,10 @@ class Adaboost:
         #num of samples,m
         nos = X.shape[0]
         
-        D = [1.0/nof]*nof
+        D = [1.0/nos]*nos
 	
         for i in range(iteration):
-            error,yhat,j,c,dim = find_hjc(X,y,nof,D)
+            error,yhat,j,c,dim = find_hjc(X,y,D)
             self.y_dim.append(dim)
 
             self.j_sets.append(j)
@@ -38,7 +39,7 @@ class Adaboost:
             if error >=0.000001:
                 alpha = find_alpha(error)
                 #Updating weight D
-                temp = np.exp(np.multiply(-alpha*y,yhat))
+                temp = np.exp(-alpha*np.multiply(y,yhat))
                 D = np.multiply(D,temp)
                 D /= D.sum()
                 self.alpha_sets.append(alpha)
@@ -48,23 +49,34 @@ class Adaboost:
 
     def predict(self, X):
         try:
-            X = np.asarray(X)
+            X = X.toarray()
         except:
             pass #Transform X from whatever to ndarray
 
-        yhat = y_predict =  [0]*X.shape[0]
-        yhat = np.asarray(yhat)
+        yhat = y_predict =  np.zeros(X.shape[0])
 
         for i in range(len(self.j_sets)):
+
+            c = self.cutoff_sets[i]
+            ydim = self.y_dim[i]
+            j = self.j_sets[i]
+            alpha = self.alpha_sets[i]
+
+            #Initiating yjc
             yjc = [0]*X.shape[0]
             yjc = np.asarray(yjc)
-            Xc = X[:,self.j_sets[i]]
-            yjc[Xc >= c] = self.y_dim[i]
-            yjc[Xc < c] = -1*self.y_dim[i]
-            yhat += yjc
-        y[yhat>=0] = 1
-        y[yhat<0] = 0
-        return y
+            #Extracting j'th column of X
+            Xc = X[:,j]
+
+            #Make prediction
+            yjc[Xc >= c] = ydim
+            yjc[Xc < c] = -1*ydim
+
+            yhat += yjc*alpha
+
+        y_predict[yhat>=0] = 1
+        y_predict[yhat<0] = 0
+        return y_predict
 
 
 
@@ -79,15 +91,17 @@ def find_yhat(j,c,X,y):
         if X[i,j] <= c:
             yhat[i] = -1
     
-    if np.sum(y_hat == y) >= np.sum(y_hat != y):
+    if np.sum(yhat == y) >= np.sum(yhat != y):
         return yhat,1
     else:
         return -yhat,-1
 
-def find_hjc(X,y,nof,D):
+def find_hjc(X,y,D):      
     
 
     error = float('inf')
+    nos = X.shape[0]
+    nof = X.shape[1]
     
 
     for j in range(nof):
@@ -110,8 +124,8 @@ def find_hjc(X,y,nof,D):
                 if yhat[i] != y[i]:
                     errors[i] = 1
             
-            weightederror= D.dot(error)
-            #Update            
+            weightederror= np.dot(D,errors)
+            #Update  
             if weightederror < error:
                 error = weightederror
                 bestyhat = yhat
@@ -125,7 +139,7 @@ def find_hjc(X,y,nof,D):
 def find_alpha(error):
 
     alpha = math.log((1-error)/error) * 0.5
-    return 
+    return alpha
 
 
 

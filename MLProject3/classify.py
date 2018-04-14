@@ -3,16 +3,31 @@ import argparse
 import sys
 import pickle
 import models
+import numpy as np
+from scipy.sparse import csr_matrix
 
 from cs475_types import ClassificationLabel, FeatureVector, Instance, Predictor
 
+
 def load_data(filename):
-    instances = []
+    """ Load data.
+
+    Args:
+        filename: A string. The path to the data file.
+
+    Returns:
+        A tuple, (X, y). X is a compressed sparse row matrix of floats with
+        shape [num_examples, num_features]. y is a dense array of ints with
+        shape [num_examples].
+    """
+
+    X_nonzero_rows, X_nonzero_cols, X_nonzero_values = [], [], []
+    y = []
     with open(filename) as reader:
-        for line in reader:
+        for example_index, line in enumerate(reader):
             if len(line.strip()) == 0:
                 continue
-            
+
             # Divide the line into features and label.
             split_line = line.split(" ")
             label_string = split_line[0]
@@ -22,27 +37,30 @@ def load_data(filename):
                 int_label = int(label_string)
             except ValueError:
                 raise ValueError("Unable to convert " + label_string + " to integer.")
+            y.append(int_label)
 
-            label = ClassificationLabel(int_label)
-            feature_vector = FeatureVector()
-            
             for item in split_line[1:]:
                 try:
-                    index = int(item.split(":")[0])
+                    # Features are 1 indexed in the data files, so we need to subtract 1.
+                    feature_index = int(item.split(":")[0]) - 1
                 except ValueError:
                     raise ValueError("Unable to convert index " + item.split(":")[0] + " to integer.")
+                if feature_index < 0:
+                    raise Exception('Expected feature indices to be 1 indexed, but found index of 0.')
                 try:
                     value = float(item.split(":")[1])
                 except ValueError:
                     raise ValueError("Unable to convert value " + item.split(":")[1] + " to float.")
-                
+
                 if value != 0.0:
-                    feature_vector.add(index, value)
+                    X_nonzero_rows.append(example_index)
+                    X_nonzero_cols.append(feature_index)
+                    X_nonzero_values.append(value)
 
-            instance = Instance(feature_vector, label)
-            instances.append(instance)
+    X = csr_matrix((X_nonzero_values, (X_nonzero_rows, X_nonzero_cols)), dtype=np.float)
+    y = np.array(y, dtype=np.int)
 
-    return instances
+    return X, y
 
 
 def get_args():
@@ -78,19 +96,24 @@ def check_args(args):
             raise Exception("model file specified by --model-file does not exist.")
 
 
-def train(instances, algorithm):
-        if algorithm.lower() == 'adaboost':
-            model = models.Adaboost()
+def train(X,y,iteration, algorithm):
+    if algorithm.lower() == 'adaboost':
+        model = models.Adaboost()
+    else:
+        raise Exception('The model given by --model is not yet supported.')
+
+    model.fit(X,y,iteration)
+    return model
+            
     
-    return None
 
 
-def write_predictions(predictor, instances, predictions_file):
+def write_predictions(predictor,X, predictions_file):
     try:
         with open(predictions_file, 'w') as writer:
-            for instance in instances:
-                label = predictor.predict(instance)
-        
+            label = predictor.predict(X)
+
+            for label in label:
                 writer.write(str(label))
                 writer.write('\n')
     except IOError:
@@ -102,10 +125,10 @@ def main():
 
     if args.mode.lower() == "train":
         # Load the training data.
-        instances = load_data(args.data)
+        X,y = load_data(args.data)
 
         # Train the model.
-        predictor = train(instances, args.algorithm)
+        predictor = train(X,y,args.num_boosting_iterations, args.algorithm)
         try:
             with open(args.model_file, 'wb') as writer:
                 pickle.dump(predictor, writer)
@@ -116,7 +139,7 @@ def main():
             
     elif args.mode.lower() == "test":
         # Load the test data.
-        instances = load_data(args.data)
+        X,y = load_data(args.data)
 
         predictor = None
         # Load the model.
@@ -128,7 +151,7 @@ def main():
         except pickle.PickleError:
             raise Exception("Exception while loading pickle.")
             
-        write_predictions(predictor, instances, args.predictions_file)
+        write_predictions(predictor,X, args.predictions_file)
     else:
         raise Exception("Unrecognized mode.")
 
