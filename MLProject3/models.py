@@ -33,13 +33,16 @@ class Adaboost:
 	
         for i in range(iteration):
             error,yhat,j,c,dim = find_hjc(X,y,D)
-            #print(j,c,error)
+            print(j,c)
+            
+        
             self.y_dim.append(dim)
             self.j_sets.append(j)
             self.cutoff_sets.append(c)
 
-            if error >=0.000001:
+            if error >=0.000005:
                 alpha = find_alpha(error)
+                print(alpha)
                 #Updating weight D
                 temp = np.exp(np.multiply(y*-alpha,yhat))
                 D = np.multiply(D,temp)
@@ -60,7 +63,7 @@ class Adaboost:
         for i in range(len(self.j_sets)):
 
             c = self.cutoff_sets[i]
-            print(c)
+            #print(c)
             ydim = self.y_dim[i]
             j = self.j_sets[i]
             alpha = self.alpha_sets[i]
@@ -72,8 +75,12 @@ class Adaboost:
             Xc = X[:,j]
 
             #Make prediction
-            yjc[Xc >= c] = ydim
-            yjc[Xc < c] = -1*ydim
+            if ydim == 1:
+                yjc[Xc >= c] = 1
+                yjc[Xc < c] = -1
+            if ydim == -1:
+                yjc[Xc >= c] = -1
+                yjc[Xc < c] = 1
 
             yhat += yjc*alpha
 
@@ -116,15 +123,16 @@ def find_hjc(X,y,D):
 
     for j in range(nof):
 
-        sortj = np.sort(X[:,j])
+        sortj = np.unique(np.sort(X[:,j]))
 
         #For each row j of X input, store all the cutoffs
         cutoffs = []
+        
         for i in range(sortj.shape[0]-1):
             cutoffs.append((sortj[i]+sortj[i+1])/2)
-        cutoffs=np.unique(np.asarray(cutoffs))
-                
-        
+        #cutoffs=np.unique(np.asarray(cutoffs))
+        cutoffs = np.asarray(cutoffs)
+
         for c in cutoffs:
             yhat,yhatdim = find_yhat(j,c,X,y)
             #Get the error from cutoffs
@@ -135,8 +143,7 @@ def find_hjc(X,y,D):
                     errors[i] = 1
             
             weightederror= np.dot(D,errors)
-            #if weightederror < error:
-                #print(c)            
+         
             #Update  
             if weightederror < error:
 
@@ -147,7 +154,8 @@ def find_hjc(X,y,D):
                 bestdim = yhatdim
             #print(bestj)
             #print(bestc)
-        print(bestc)
+        #print(bestj)
+        #print(bestc)
     
     return error,bestyhat,bestj,bestc,bestdim
 
