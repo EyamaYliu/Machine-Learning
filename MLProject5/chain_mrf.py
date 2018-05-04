@@ -182,11 +182,11 @@ class SumProduct:
 
         all_forward_messages = []
         all_forward_messages = self.forward_message()
-        print(all_forward_messages)
+        #print(all_forward_messages)
 
         all_backward_messages = []
         all_backward_messages = self.backward_message()
-        print(all_backward_messages)
+        #print(all_backward_messages)
 
         idx = x_i
 
