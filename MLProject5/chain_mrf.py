@@ -178,23 +178,15 @@ class SumProduct:
     def marginal_probability(self, x_i):
         # should return a python list of type float, with its length=k+1, and the first value 0
 
-        # This code is used for testing only and should be removed in your implementation.
-        # It creates a uniform distribution, leaving the first position 0
-        result = [1.0 / (self._potentials.num_x_values())] * (self._potentials.num_x_values() + 1)
-        result[0] = 0
-
         #Initialize message before and after x_i. 
-        forward_message = [0]*(self.k +1)
-        backward_message = [0]*(self.k +1)
 
         all_forward_messages = []
         all_forward_messages = self.forward_message()
-       # print(all_forward_messages)
+        print(all_forward_messages)
 
         all_backward_messages = []
         all_backward_messages = self.backward_message()
-       # print(all_backward_messages)
-
+        print(all_backward_messages)
 
         idx = x_i
 
@@ -211,17 +203,14 @@ class SumProduct:
 
         return newres
 
-
-  
-
-        
-
         
 
 
 class MaxSum:
     def __init__(self, p):
         self._potentials = p
+        self.n = p.chain_length()
+        self.k = p.num_x_values()
         self._assignments = [0] * (p.chain_length() + 1)
         # TODO: EDIT HERE
         # add whatever data structures needed
