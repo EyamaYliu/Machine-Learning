@@ -1,4 +1,4 @@
-
+import numpy as np
 
 class ChainMRFPotentials:
     def __init__(self, data_file):
@@ -103,18 +103,120 @@ class ChainMRFPotentials:
 class SumProduct:
     def __init__(self, p):
         self._potentials = p
-        # TODO: EDIT HERE
-        # add whatever data structures needed
+        self.n = p.chain_length()
+        self.k = p.num_x_values()
+
+    def unary_message(self,index):
+        k = self.k+1
+        msg = [0]*k
+        for i in range(1,k):
+            msg[i] = self._potentials.potential(index,i)
+        return msg
+
+    def binary_message(self,index,prev_node_msg):
+        k = self.k+1
+
+        msg = [0]*k
+        
+        potential = 0
+
+        #For every msg in previous node
+        for i in range(1,k):
+            #For every msg in current node
+            for j in range(1,k):
+                potential  = self._potentials.potential(index,j,i)
+                msg[i] += potential*prev_node_msg[j]
+        return msg
+
+    
+    def forward_message(self):
+        
+        msg = [[]]
+
+        n = self.n
+
+        for i in range(1,n+1):
+            if i == 1:
+                #temp = self.unary_message(i)
+                temp = [0]
+                temp.extend([1]*self.k)
+                msg.append(temp)
+            else:
+                temp = self.binary_message(n+i-1,msg[i-1])
+                temp = (np.asarray(temp) * self.unary_message(i)).tolist()
+                msg.append(temp)
+                
+    
+        return msg
+
+
+    def backward_message(self):
+        
+        msg = [[]]
+
+        n = self.n
+
+    
+        for i in range(n,0,-1):
+            if i == n:
+                #temp = self.unary_message(i)
+                temp = [0]
+                temp.extend([1]*self.k)
+                msg.append(temp)
+            else:
+                temp = self.binary_message(n+i,msg[-i+n])
+                temp = (np.asarray(temp) * self.unary_message(i)).tolist()
+                msg.append(temp)
+                
+        temp = msg[1:]
+        temp.reverse()
+        reversed_msg = [[]]
+        reversed_msg.extend(temp)
+        return reversed_msg
+       
 
     def marginal_probability(self, x_i):
-        # TODO: EDIT HERE
         # should return a python list of type float, with its length=k+1, and the first value 0
 
         # This code is used for testing only and should be removed in your implementation.
         # It creates a uniform distribution, leaving the first position 0
         result = [1.0 / (self._potentials.num_x_values())] * (self._potentials.num_x_values() + 1)
         result[0] = 0
-        return result
+
+        #Initialize message before and after x_i. 
+        forward_message = [0]*(self.k +1)
+        backward_message = [0]*(self.k +1)
+
+        all_forward_messages = []
+        all_forward_messages = self.forward_message()
+       # print(all_forward_messages)
+
+        all_backward_messages = []
+        all_backward_messages = self.backward_message()
+       # print(all_backward_messages)
+
+
+        idx = x_i
+
+        res = (np.asarray(all_forward_messages[idx]) * np.asarray(all_backward_messages[idx])).tolist()
+        
+        newres = []
+
+        #Normalize
+        if sum(res) != 1:
+            ressum = sum(res)
+            for each_term in res:
+                each_term /= ressum
+                newres.append(each_term)
+
+        return newres
+
+
+  
+
+        
+
+        
 
 
 class MaxSum:
