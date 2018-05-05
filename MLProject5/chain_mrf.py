@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 class ChainMRFPotentials:
     def __init__(self, data_file):
@@ -113,7 +114,7 @@ class SumProduct:
             msg[i] = self._potentials.potential(index,i)
         return msg
 
-    def binary_message(self,index,prev_node_msg):
+    def binary_message_forward(self,index,prev_node_msg):
         k = self.k+1
 
         msg = [0]*k
@@ -125,6 +126,21 @@ class SumProduct:
             #For every msg in current node
             for j in range(1,k):
                 potential  = self._potentials.potential(index,j,i)
+                msg[i] += potential*prev_node_msg[j]
+        return msg
+
+    def binary_message_backward(self,index,prev_node_msg):
+        k = self.k+1
+
+        msg = [0]*k
+        
+        potential = 0
+
+        #For every msg in previous node
+        for i in range(1,k):
+            #For every msg in current node
+            for j in range(1,k):
+                potential  = self._potentials.potential(index,i,j)
                 msg[i] += potential*prev_node_msg[j]
         return msg
 
@@ -142,8 +158,11 @@ class SumProduct:
                 temp.extend([1]*self.k)
                 msg.append(temp)
             else:
-                temp = self.binary_message(n+i-1,msg[i-1])
-                temp = (np.asarray(temp) * self.unary_message(i)).tolist()
+                #From node to factor, use unary potential multiply previous node's message
+                msg_from_prevnode_to_f=(np.asarray(msg[i-1])*self.unary_message(i-1)).tolist()
+
+                #From factor to node, multiple incoming info with binary potential
+                temp = self.binary_message_forward(n+i-1,msg_from_prevnode_to_f)
                 msg.append(temp)
                 
     
@@ -164,9 +183,12 @@ class SumProduct:
                 temp.extend([1]*self.k)
                 msg.append(temp)
             else:
-                temp = self.binary_message(n+i,msg[-i+n])
-                temp = (np.asarray(temp) * self.unary_message(i)).tolist()
+                #From node to factor, use unary potential multiply previous node's message
+                msg_from_prevnode_to_f=(np.asarray(msg[-i+n])*self.unary_message(i+1)).tolist()
+
+                temp = self.binary_message_backward(n+i,msg_from_prevnode_to_f)
                 msg.append(temp)
+
                 
         temp = msg[1:]
         temp.reverse()
@@ -182,15 +204,13 @@ class SumProduct:
 
         all_forward_messages = []
         all_forward_messages = self.forward_message()
-        #print(all_forward_messages)
 
         all_backward_messages = []
         all_backward_messages = self.backward_message()
-        #print(all_backward_messages)
 
         idx = x_i
 
-        res = (np.asarray(all_forward_messages[idx]) * np.asarray(all_backward_messages[idx])).tolist()
+        res = (np.asarray(all_forward_messages[idx]) * np.asarray(all_backward_messages[idx])*np.asarray(self.unary_message(idx))).tolist()
         
         newres = []
 
@@ -218,6 +238,126 @@ class MaxSum:
     def get_assignments(self):
         return self._assignments
 
+    
+    def unary_message(self,index):
+        k = self.k+1
+        msg = [0]*k
+        for i in range(1,k):
+            msg[i] = math.log(self._potentials.potential(index,i))
+        return msg
+
+
+    def binary_message_forward(self,index,prev_node_msg):
+        k = self.k+1
+
+        msg = [0]*k
+        
+        potential = 0
+
+        max_p = -9999999999999
+
+        #For every msg in previous node
+        for i in range(1,k):
+            #For every msg in current node
+            for j in range(1,k):
+                potential  = math.log(self._potentials.potential(index,j,i))+prev_node_msg[j]
+                if potential > max_p:
+                    max_p = potential
+            msg[i] = max_p
+        return msg
+
+    def binary_message_backward(self,index,prev_node_msg):
+        k = self.k+1
+
+        msg = [0]*k
+        
+        potential = 0
+
+        max_p = -9999999999999
+
+        #For every msg in previous node
+        for i in range(1,k):
+            #For every msg in current node
+            for j in range(1,k):
+                potential  = math.log(self._potentials.potential(index,i,j))+prev_node_msg[j]
+                if potential > max_p:
+                    max_p = potential
+            msg[i] = max_p
+        return msg
+
+    
+    def forward_message(self):
+        
+        msg = [[]]
+
+        n = self.n
+
+        for i in range(1,n+1):
+            if i == 1:
+                #temp = self.unary_message(i)
+                temp = [0]
+                temp.extend([1]*self.k)
+                msg.append(temp)
+            else:
+                #From node to factor, use unary potential multiply previous node's message
+                msg_from_prevnode_to_f=(np.asarray(msg[i-1])*self.unary_message(i-1)).tolist()
+
+                #From factor to node, multiple incoming info with binary potential
+                temp = self.binary_message_forward(n+i-1,msg_from_prevnode_to_f)
+                msg.append(temp)
+                
+    
+        return msg
+
+
+    def backward_message(self):
+        
+        msg = [[]]
+
+        n = self.n
+
+    
+        for i in range(n,0,-1):
+            if i == n:
+                #temp = self.unary_message(i)
+                temp = [0]
+                temp.extend([1]*self.k)
+                msg.append(temp)
+            else:
+                #From node to factor, use unary potential multiply previous node's message
+                msg_from_prevnode_to_f=(np.asarray(msg[-i+n])*self.unary_message(i+1)).tolist()
+
+                temp = self.binary_message_backward(n+i,msg_from_prevnode_to_f)
+                msg.append(temp)
+
+                
+        temp = msg[1:]
+        temp.reverse()
+        reversed_msg = [[]]
+        reversed_msg.extend(temp)
+        return reversed_msg
+
     def max_probability(self, x_i):
-        # TODO: EDIT HERE
-        return 0.0
+
+        all_forward_messages = []
+        all_forward_messages = self.forward_message()
+
+        all_backward_messages = []
+        all_backward_messages = self.backward_message()      
+
+        idx = x_i
+
+        res = (np.asarray(all_forward_messages[idx]) + np.asarray(all_backward_messages[idx])+np.asarray(self.unary_message(idx))).tolist()
+
+
+        #Find the max k and probability value        
+        max_k = -9999999999
+        max_p = -9999999999
+        for i in range(1,self.k+1):
+            if res[i] > max_p:
+                max_p = res[i]
+                max_k = i
+      
+        self._assignments[idx] = max_k
+        
+        return max_p
